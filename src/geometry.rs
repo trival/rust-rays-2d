@@ -1,20 +1,20 @@
 use crate::math::*;
 
 pub struct Ray {
-	origin: Vec2,
-	direction: Vec2,
+	pub origin: Vec2,
+	pub dir: Vec2,
 }
 
 impl Ray {
 	pub fn new(origin: Vec2, direction: Vec2) -> Self {
 		Ray {
 			origin,
-			direction: direction.normalize(),
+			dir: direction.normalize(),
 		}
 	}
 
 	pub fn at(&self, t: f64) -> Vec2 {
-		self.origin + self.direction * t
+		self.origin + self.dir * t
 	}
 }
 
@@ -56,31 +56,43 @@ impl Line {
 
 impl Hit for Line {
 	fn hit(&self, ray: &Ray, min_t: f64, max_t: f64) -> Option<HitData> {
-		let p1 = self.start;
-		let p2 = self.end;
-		let p3 = ray.origin;
-		let p4 = ray.origin + ray.direction;
-		let denominator = (p4.y - p3.y) * (p2.x - p1.x) - (p4.x - p3.x) * (p2.y - p1.y);
-		if denominator == 0.0 {
+		// two line segments run from p to p + r and from q to q + s
+		// the intersection point is p + tr = q + us
+		// t = (q − p) × s / (r × s)
+		// u = (q − p) × r / (r × s)
+		//
+		// translates to
+		// ray from ro[p] to ro[p] + rdir[r]
+		// line from pstart[q] to pstart[q] + (pend - pstart)[s]
+		// the intersection point is
+		// r.orig + t * r.dir = p.start + u * (p.end - p.start)
+		// t = (p.start − r.orig) x (p.end - p.start) / (r.dir x (p.end - p.start))
+		// u = (p.start − r.orig) x r.dir / (r.dir x (p.end - p.start))
+		//
+
+		let s = self.end - self.start;
+		let denom = ray.dir.cross(s);
+		if (denom - 0.0).abs() < f64::EPSILON {
 			return None;
 		}
-		let u_a = ((p4.x - p3.x) * (p1.y - p3.y) - (p4.y - p3.y) * (p1.x - p3.x)) / denominator;
-		let u_b = ((p2.x - p1.x) * (p1.y - p3.y) - (p2.y - p1.y) * (p1.x - p3.x)) / denominator;
-		if u_a >= 0.0 && u_a <= 1.0 && u_b >= 0.0 && u_b <= 1.0 {
-			let x = p1.x + u_a * (p2.x - p1.x);
-			let y = p1.y + u_a * (p2.y - p1.y);
 
-			let point = Vec2::new(x, y);
-			let t = (point - ray.origin).length();
+		let q = self.start - ray.origin;
 
-			if (t < min_t) || (t > max_t) {
-				return None;
-			}
-
-			let normal = (p2 - p1).normalize().perp();
-			Some(HitData { t, point, normal })
-		} else {
-			None
+		let u = q.cross(ray.dir) / denom;
+		if u < 0.0 || u > 1.0 {
+			return None;
 		}
+
+		let t = q.cross(s) / denom;
+		if t < min_t || t >= max_t {
+			return None;
+		}
+
+		let p = ray.at(t);
+		Some(HitData {
+			t,
+			point: p,
+			normal: s.perp().normalize(),
+		})
 	}
 }

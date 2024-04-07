@@ -27,7 +27,7 @@ impl Scene {
 	}
 }
 
-const LIGHT_DISTANCE: f64 = 100.0;
+const LIGHT_DISTANCE: f64 = 400.0;
 
 fn lerp(a: f64, b: f64, t: f64) -> f64 {
 	a * (1.0 - t) + b * t
@@ -59,14 +59,18 @@ pub fn ray_color(ray: &Ray, scene: &Scene, depth: u32) -> Vec3 {
 		let object = closest_object.unwrap();
 
 		if object.is_light {
-			return object.color;
+			return object.color
+				* 2.0 * lerp(0., 1., (LIGHT_DISTANCE - hit.t) / LIGHT_DISTANCE).clamp(0., 1.);
 		}
-		let target = hit.point + hit.normal + Vec2::random_in_unit_sphere();
+		let normal = if hit.normal.dot(ray.dir) < 0.0 {
+			hit.normal
+		} else {
+			-hit.normal
+		};
+		let target = hit.point + normal + Vec2::random_in_unit_sphere();
 		let new_ray = Ray::new(hit.point, target - hit.point);
 
-		return object.color
-			* ray_color(&new_ray, scene, depth - 1)
-			* lerp(0., 1., (LIGHT_DISTANCE - hit.t) / LIGHT_DISTANCE).clamp(0., 1.);
+		return object.color * ray_color(&new_ray, scene, depth - 1);
 	}
 
 	Vec3::ZERO

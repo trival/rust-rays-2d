@@ -2,6 +2,7 @@ pub use glam::f64::{dvec2 as vec2, dvec3 as vec3, DVec2 as Vec2, DVec3 as Vec3};
 
 pub trait Vec2Ext {
 	fn random_in_unit_sphere() -> Vec2;
+	fn cross(self, other: Self) -> f64;
 }
 
 impl Vec2Ext for Vec2 {
@@ -16,5 +17,9 @@ impl Vec2Ext for Vec2 {
 				return p;
 			}
 		}
+	}
+
+	fn cross(self, other: Self) -> f64 {
+		self.x * other.y - self.y * other.x
 	}
 }
