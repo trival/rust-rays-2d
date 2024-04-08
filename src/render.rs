@@ -1,3 +1,5 @@
+use std::f64::consts::TAU;
+
 use crate::geometry::*;
 use crate::math::*;
 
@@ -27,12 +29,6 @@ impl Scene {
 	}
 }
 
-const LIGHT_DISTANCE: f64 = 400.0;
-
-fn lerp(a: f64, b: f64, t: f64) -> f64 {
-	a * (1.0 - t) + b * t
-}
-
 pub fn ray_color(ray: &Ray, scene: &Scene, depth: u32) -> Vec3 {
 	if depth == 0 {
 		return Vec3::ZERO;
@@ -59,8 +55,7 @@ pub fn ray_color(ray: &Ray, scene: &Scene, depth: u32) -> Vec3 {
 		let object = closest_object.unwrap();
 
 		if object.is_light {
-			return object.color
-				* 2.0 * lerp(0., 1., (LIGHT_DISTANCE - hit.t) / LIGHT_DISTANCE).clamp(0., 1.);
+			return object.color * 2.0;
 		}
 		let normal = if hit.normal.dot(ray.dir) < 0.0 {
 			hit.normal
@@ -73,7 +68,7 @@ pub fn ray_color(ray: &Ray, scene: &Scene, depth: u32) -> Vec3 {
 		return object.color * ray_color(&new_ray, scene, depth - 1);
 	}
 
-	Vec3::ZERO
+	vec3(0.3, 0.3, 0.3)
 }
 
 pub struct Image {
@@ -97,15 +92,18 @@ impl Image {
 
 	pub fn render(&mut self, scene: &Scene, samples: u32, max_depth: u32) {
 		let s = samples as f64;
+		let angle = TAU / samples as f64;
 		let s = vec3(s, s, s);
 		for y in 0..self.height {
 			for x in 0..self.width {
 				let mut color = Vec3::ZERO;
-				for _ in 0..samples {
+				for i in 0..samples {
 					let u = (x as f64 + rand::random::<f64>()) as f64;
 					let v = (y as f64 + rand::random::<f64>()) as f64;
 
-					let ray = Ray::new(vec2(u, v), Vec2::random_in_unit_sphere());
+					let angle = i as f64 * angle + angle * rand::random::<f64>();
+					let dir = vec2(angle.cos(), angle.sin());
+					let ray = Ray::new(vec2(u, v), Vec2::X.rotate(dir));
 
 					color += ray_color(&ray, scene, max_depth) / s;
 				}
