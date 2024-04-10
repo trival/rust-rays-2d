@@ -1,4 +1,4 @@
-use crate::math::*;
+use crate::{math::*, to_static};
 
 pub struct Ray {
 	pub origin: Vec2,
@@ -52,6 +52,10 @@ impl Line {
 		let end = (self.end - origin).rotate(rot) + origin;
 		Line { start, end }
 	}
+}
+
+pub fn static_line(start: Vec2, end: Vec2) -> &'static Line {
+	to_static(Line::new(start, end))
 }
 
 impl Hittable for Line {

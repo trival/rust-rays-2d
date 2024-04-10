@@ -1,9 +1,5 @@
 use rays_2d::*;
 
-fn rnd() -> f64 {
-	rand::random::<f64>()
-}
-
 pub fn main() {
 	let width = 800;
 	let height = 600;
@@ -19,26 +15,23 @@ pub fn main() {
 	for _ in 0..20 {
 		let start = vec2(rnd() * w, rnd() * h);
 		let end = vec2(rnd() * w, rnd() * h);
-		let line = Line::new(start, end);
+		let line = static_line(start, end);
 		let color = vec3(rnd(), rnd(), rnd());
 		let is_light = rnd() < 0.33;
-		objects.push(SceneObject::new(to_static(line), color, is_light));
+		objects.push(SceneObject::new(line, color, is_light));
 	}
 
 	let scene = Scene::build(to_static(objects));
 
-	let image = if threads > 1 {
-		Image::render_parallel(
-			&scene,
-			width,
-			height,
-			samples_per_pixel,
-			max_bounces,
-			threads,
-		)
-	} else {
-		Image::render(&scene, width, height, samples_per_pixel, max_bounces)
-	};
+	let image = Image::render_parallel(
+		&scene,
+		width,
+		height,
+		samples_per_pixel,
+		max_bounces,
+		threads,
+		true,
+	);
 
 	print!("{}", image.to_ppm());
 }

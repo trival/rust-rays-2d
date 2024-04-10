@@ -3,6 +3,8 @@ use std::thread;
 
 use crate::geometry::*;
 use crate::math::*;
+use crate::rnd;
+use crate::to_static;
 
 pub struct SceneObject {
 	pub geometry: &'static dyn Hittable,
@@ -58,15 +60,29 @@ pub fn ray_color(ray: &Ray, scene: &Scene, depth: usize) -> Vec3 {
 		if object.is_light {
 			return object.color * 2.0;
 		}
-		let normal = if hit.normal.dot(ray.dir) < 0.0 {
-			hit.normal
-		} else {
-			-hit.normal
-		};
-		let target = hit.point + normal + Vec2::random_in_unit_sphere();
-		let new_ray = Ray::new(hit.point, target - hit.point);
 
-		return object.color * ray_color(&new_ray, scene, depth - 1);
+		let translucent = rnd() < 0.25;
+
+		let new_ray;
+
+		if translucent {
+			new_ray = Ray::new(hit.point, ray.dir);
+		} else {
+			let normal = if hit.normal.dot(ray.dir) < 0.0 {
+				hit.normal
+			} else {
+				-hit.normal
+			};
+			let target = hit.point + normal + Vec2::random_in_unit_sphere();
+			new_ray = Ray::new(hit.point, target - hit.point);
+		}
+		let color = ray_color(&new_ray, scene, depth - 1);
+
+		return if translucent {
+			color
+		} else {
+			object.color * color
+		};
 	}
 
 	vec3(0.3, 0.3, 0.3)
@@ -101,12 +117,21 @@ impl Image {
 		height: usize,
 		samples: usize,
 		max_bounces: usize,
+		thread_log: usize,
 	) -> Self {
 		let mut image = Image::new(width, height);
 		let s = samples as f64;
 		let angle = TAU / samples as f64;
 		let s = vec3(s, s, s);
+
+		if thread_log > 0 {
+			eprintln!("thread {} started rendering", thread_log,);
+		}
 		for y in 0..height {
+			if thread_log > 0 && y > 0 && y % 10 == 0 {
+				let percentage = (y as f64 / height as f64) * 100.0;
+				eprintln!("thread {} rendered {}%", thread_log, percentage as u32);
+			}
 			for x in 0..width {
 				let mut color = Vec3::ZERO;
 				for i in 0..samples {
@@ -122,6 +147,10 @@ impl Image {
 				image.set_pixel(x, y, color);
 			}
 		}
+
+		if thread_log > 0 {
+			eprintln!("thread {} rendered 100%", thread_log,);
+		}
 		image
 	}
 
@@ -132,12 +161,31 @@ impl Image {
 		samples: usize,
 		max_bounces: usize,
 		threads: usize,
+		log: bool,
 	) -> Self {
 		let mut handles = vec![];
 
-		for _ in 0..threads {
+		if threads <= 1 {
+			return Image::render(
+				scene,
+				width,
+				height,
+				samples,
+				max_bounces,
+				if log { 1 } else { 0 },
+			);
+		}
+
+		for i in 1..(threads + 1) {
 			handles.push(thread::spawn(move || {
-				Image::render(scene, width, height, samples / threads, max_bounces)
+				Image::render(
+					scene,
+					width,
+					height,
+					samples / threads,
+					max_bounces,
+					if log { i } else { 0 },
+				)
 			}));
 		}
 
