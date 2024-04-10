@@ -1,16 +1,17 @@
 use std::f64::consts::TAU;
+use std::thread;
 
 use crate::geometry::*;
 use crate::math::*;
 
 pub struct SceneObject {
-	pub geometry: &'static dyn Hit,
+	pub geometry: &'static dyn Hittable,
 	pub color: Vec3,
 	pub is_light: bool,
 }
 
 impl SceneObject {
-	pub fn new(geometry: &'static dyn Hit, color: Vec3, is_light: bool) -> Self {
+	pub fn new(geometry: &'static dyn Hittable, color: Vec3, is_light: bool) -> Self {
 		SceneObject {
 			geometry,
 			color,
@@ -24,12 +25,12 @@ pub struct Scene {
 }
 
 impl Scene {
-	pub fn new(objects: &'static [SceneObject]) -> Self {
-		Scene { objects }
+	pub fn build(objects: &'static [SceneObject]) -> &'static Self {
+		to_static(Scene { objects })
 	}
 }
 
-pub fn ray_color(ray: &Ray, scene: &Scene, depth: u32) -> Vec3 {
+pub fn ray_color(ray: &Ray, scene: &Scene, depth: usize) -> Vec3 {
 	if depth == 0 {
 		return Vec3::ZERO;
 	}
@@ -78,7 +79,7 @@ pub struct Image {
 }
 
 impl Image {
-	pub fn new(width: usize, height: usize) -> Self {
+	fn new(width: usize, height: usize) -> Self {
 		Image {
 			width,
 			height,
@@ -90,12 +91,23 @@ impl Image {
 		self.data[y * self.width + x] = color;
 	}
 
-	pub fn render(&mut self, scene: &Scene, samples: u32, max_depth: u32) {
+	fn get_pixel(&self, x: usize, y: usize) -> Vec3 {
+		self.data[y * self.width + x]
+	}
+
+	pub fn render(
+		scene: &Scene,
+		width: usize,
+		height: usize,
+		samples: usize,
+		max_bounces: usize,
+	) -> Self {
+		let mut image = Image::new(width, height);
 		let s = samples as f64;
 		let angle = TAU / samples as f64;
 		let s = vec3(s, s, s);
-		for y in 0..self.height {
-			for x in 0..self.width {
+		for y in 0..height {
+			for x in 0..width {
 				let mut color = Vec3::ZERO;
 				for i in 0..samples {
 					let u = (x as f64 + rand::random::<f64>()) as f64;
@@ -105,11 +117,48 @@ impl Image {
 					let dir = vec2(angle.cos(), angle.sin());
 					let ray = Ray::new(vec2(u, v), Vec2::X.rotate(dir));
 
-					color += ray_color(&ray, scene, max_depth) / s;
+					color += ray_color(&ray, scene, max_bounces) / s;
 				}
-				self.set_pixel(x, y, color);
+				image.set_pixel(x, y, color);
 			}
 		}
+		image
+	}
+
+	pub fn render_parallel(
+		scene: &'static Scene,
+		width: usize,
+		height: usize,
+		samples: usize,
+		max_bounces: usize,
+		threads: usize,
+	) -> Self {
+		let mut handles = vec![];
+
+		for _ in 0..threads {
+			handles.push(thread::spawn(move || {
+				Image::render(scene, width, height, samples / threads, max_bounces)
+			}));
+		}
+
+		let mut imgs = Vec::with_capacity(threads);
+
+		for handle in handles {
+			imgs.push(handle.join().unwrap());
+		}
+
+		for x in 0..width {
+			for y in 0..height {
+				let mut color = Vec3::ZERO;
+				for img in &imgs {
+					color += img.get_pixel(x, y);
+				}
+				color /= threads as f64;
+				imgs[threads - 1].set_pixel(x, y, color);
+			}
+		}
+
+		imgs.pop().unwrap()
 	}
 
 	pub fn to_ppm(&self) -> String {

@@ -25,7 +25,7 @@ pub struct HitData {
 	pub normal: Vec2,
 }
 
-pub trait Hit {
+pub trait Hittable: Send + Sync {
 	fn hit(&self, ray: &Ray, min_t: f64, max_t: f64) -> Option<HitData>;
 }
 
@@ -54,7 +54,7 @@ impl Line {
 	}
 }
 
-impl Hit for Line {
+impl Hittable for Line {
 	fn hit(&self, ray: &Ray, min_t: f64, max_t: f64) -> Option<HitData> {
 		// two line segments run from p to p + r and from q to q + s
 		// the intersection point is p + tr = q + us
