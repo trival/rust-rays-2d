@@ -38,10 +38,10 @@ fn rnd_point(rnd: f64, start: Vec2, dir: Vec2, offset: f64) -> Vec2 {
 	start + dir * (1.0 + rnd * 4.0) + Vec2::random_in_unit_sphere() * offset
 }
 
-// const WIDTH: usize = 1600;
-// const HEIGHT: usize = 1200;
-const WIDTH: usize = 800;
-const HEIGHT: usize = 600;
+const WIDTH: usize = 1600;
+const HEIGHT: usize = 1200;
+// const WIDTH: usize = 800;
+// const HEIGHT: usize = 600;
 // const WIDTH: usize = 200;
 // const HEIGHT: usize = 150;
 const SAMPLES_PER_PIXEL: usize = 200;
@@ -63,9 +63,9 @@ pub fn make_image(seed: u64) -> Image {
 	let left_curve = Curve::new(center, left_top, left, bottom);
 	let right_curve = Curve::new(center, right_top, right, bottom);
 
-	let lights_count = 12;
+	let lights_count = 14;
 	let lights_count_f = lights_count as f64;
-	let rnd_offset = h / 40.;
+	let rnd_offset = h / 30.;
 
 	let mut objects = vec![];
 
@@ -133,7 +133,7 @@ fn main() -> std::io::Result<()> {
 	// 	file.write_all(image.to_ppm().as_bytes())?;
 	// }
 
-	let seed = 7;
+	let seed = 14;
 	let image = make_image(seed);
 	let file_name = format!("out/scene2_seed{}_{}_{}.ppm", seed, WIDTH, HEIGHT);
 	let mut file = File::create(file_name)?;
